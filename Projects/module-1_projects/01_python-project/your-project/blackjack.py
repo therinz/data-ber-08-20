@@ -6,7 +6,7 @@ from random import shuffle, randrange
 class Card:
     """Class to hold characteristics of playing card."""
 
-    suits = ["spades", "clubs", "hearts", "diamonds"]
+    suits = ["Spades", "Clubs", "Hearts", "Diamonds"]
     values = [None, "Ace", 2, 3, 4, 5, 6, 7, 8, 9, 10,
               "Jack", "Queen", "King", "Ace"]
 
@@ -71,45 +71,40 @@ class Game:
         name_q = "What's the name of player number {}?"
         self.players = []
         for p in range(num_players):
-            name = validate_input(name_q.format(str(p+1)))
-            self.players[p] = Player(name, cash, min_bet)
+            name = validate_input(name_q.format(str(p + 1)))
+            self.players.append(Player(name, cash, min_bet))
         self.shoe = Deck()
         self.active = list(self.players)
         self.dealer = Player("Dealer", 1000000, 0)
 
-    def deal_card(self, player, first=False):
-        """Deal card, check if ace and check score."""
+    def check_ace(self, p, c):
+        """If already ace in player hand, second will count as 1."""
+
+        if c.value == 14:
+            c.value = 1 if 14 in [c.value for c in p.hand] else 14
+        return c
+
+    def deal_card(self, player, num=1):
+        """Deal card. Twice if first round otherwise check score."""
 
         # Deal card
-        new_card = self.shoe.deal()
-        if first:
-            # First round: return second card
-            return self.shoe.deal()
-        # check score
-        if new_card.value == 14:
-            new_card.value = self.ask_ace(new_card)
-        player.hand.append(new_card)
-        # check score again
-        self.check_score(player.hand)
+        for i in range(num):
+            player.hand.append(self.check_ace(player, self.shoe.deal()))
 
-    def ask_ace(self, c):
-        """Ask whether ace counts as 1 or 11."""
-
-        p = (f"You drew an Ace of {Card.suits[c.suit]}. "
-             f"Does it count as 1 or 11?")
-        choice = validate_input(p, int, options=[1, 11])
-        return 1 if choice == 1 else 14
+        # Check score
+        self.check_score(player)
 
     def check_score(self, player):
         """Updates sum of cards in current hand."""
 
         for card in player.hand:
-            if card == 14:
+            # If full ace takes player over 21, count it as 1
+            if card.value == 14 and player.score <= 10:
                 player.score += 11
-            elif card in [10, 11, 12, 13]:
+            elif card.value in [10, 11, 12, 13]:
                 player.score += 10
             else:
-                player.score += card
+                player.score += card.value
 
     def check_natural(self, player):
         """Check whether player hand qualifies as natural."""
@@ -141,47 +136,76 @@ class Game:
                 p.cash += p.bet
                 self.dealer.cash -= p.bet
 
+    def hand_details(self, p, first=False):
+        """Print details of current hand."""
+
+        # TODO natural
+        if p.name == "Dealer":
+            if first:
+                dealer_hand = str(p.hand[0])
+            else:
+                dealer_hand = ", ".join([str(c) for c in p.hand])
+            text = f"Dealer hand is currently {dealer_hand}"
+            # TODO work on dealer text
+        if 14 in [c.value for c in p.hand]:
+            text = f"{p.name}, your current hand is either {p.score - 10} or {p.score}: "
+        else:
+            text = f"{p.name}, your current hand is {p.score}: "
+        cards = ", ".join([str(c) for c in p.hand])
+
+        return text + cards
+
     def first_round(self):
         """Deal first hand to all players and dealer."""
 
         for p in self.players:
-            self.deal_card(p, first=True)
+            self.deal_card(p, num=2)
             self.check_natural(p)
+            print(self.hand_details(p))
 
-            # Check if ace in first hand
-            for card in p.hand:
-                if card.value == 14:
-                    self.ask_ace(card)
-
-        # dealer first cards
+        # Dealer first cards
         dealer = self.dealer
-        self.deal_card(dealer, first=True)
+        self.deal_card(dealer, num=2)
         self.check_natural(dealer)
+
+        # Update bets if any Natural drawn
         if any([p.score for p in self.players] + [self.dealer.score]):
             self.update_bet(natural=True)
 
     def play_round(self):
         """After first cards each players goes a round"""
 
-        prompt = "Stand (s) or hit (h)?"
+        prompt = f"{p.name}, do you want to stand (s) or hit (h)?"
         s_or_h = ["stand", "hit", "s", "h"]
+        print("")
 
         for p in self.active:
             while p.score < 21:
                 q = validate_input(prompt, str, options=s_or_h)
                 if q in ["hit", "h"]:
                     self.deal_card(p)
+                    print(self.hand_details(p))
                 else:
                     self.active.remove(p)
                     break
+            if p.score == 21:
+                txt = f"Blackjack! Well done {p.name}."
+            elif p.score > 21:
+                txt = f"Busted! {p.name}'s bet goes to the house."
+            else:
+                txt = f"Good choice. Moving on."
+            print(txt)
 
         # Dealer must stand when 17 or over
         d = self.dealer
         while d.score < 17:
+
             self.deal_card(d)
+
             # Ace counts as 11 when total would be between 16 & 22
-            if 1 in d.hand:
-                if 16 < sum(d.hand + [10]) < 22:
+            dealer_hand = [c.value for c in d.hand]
+            if 1 in dealer_hand:
+                if 16 < sum(dealer_hand + [10]) < 22:
                     break
 
     def reset_players(self):
@@ -242,3 +266,4 @@ if __name__ == '__main__':
     """Load game if script executed directly."""
 
     game = Game()
+    game.play()
