@@ -3,6 +3,12 @@
 from random import shuffle, randrange
 
 
+# Constants
+NUM_PLAYERS = 2
+CASH = 1000
+BET = 100
+
+
 class Card:
     """Class to hold characteristics of playing card."""
 
@@ -65,6 +71,8 @@ class Player:
         self.name = name
         self.bet = bet
         self.cash = cash
+        # Win status. 0: tie, 1: win, 2: loss, 3: natural
+        self.win = 0
 
     def full_hand(self):
         """Return list of card values in current hand."""
@@ -78,14 +86,30 @@ class Game:
     def __init__(self, num_players=2, cash=1000, min_bet=100):
         """Initialize values for game."""
 
-        name_q = "What's the name of player number {}?"
+        self.min_bet = min_bet
+        self.cash = cash
+        self.num_players = num_players
         self.players = []
-        for p in range(num_players):
-            name = validate_input(name_q.format(str(p + 1)))
-            self.players.append(Player(name, cash, min_bet))
+        self.welcome()
         self.shoe = Deck()
         self.dealer = Player("Dealer", 1000000, 0)
         self.active = list(self.players)
+
+    def welcome(self):
+        """Display game rules and ask for player names."""
+
+        print("\nWelcome to Ironhack Blackjack.")
+        print(f"\nHouse rules:"
+              f"\n- {self.num_players} Players"
+              f"\n- ${self.cash} per player"
+              f"\n- ${self.min_bet} bet"
+              f"\n- Natural (blackjack on first hand) wins 1,5x of player bet"
+              f"\n\n- Enjoy the game and best of luck!\n")
+        name_q = "What's the name of player number {}? "
+        for p in range(self.num_players):
+            name = validate_input(name_q.format(str(p + 1)))
+            self.players.append(Player(name, self.cash, self.min_bet))
+        print("\n")
 
     def check_ace(self, p, c):
         """If already an ace in player hand, second will count as 1."""
@@ -107,7 +131,7 @@ class Game:
         # In first round check hand after second card
         if num > 1:
             self.check_natural(p)
-            print(self.hand_details(p))
+            print(self.hand_details(p, first=True))
 
     def check_score(self, p):
         """Updates sum of cards in current hand."""
@@ -123,6 +147,15 @@ class Game:
             else:
                 p.score += card.value
 
+        # If earlier ace would cause >21, change it to a 1
+        if p.score > 21 and 14 in p.full_hand():
+            for c in p.hand:
+                if c.value == 14:
+                    c.value = 1
+            p.score -= 10
+        elif p.score > 21:
+            p.score = 0
+
     def check_natural(self, p):
         """Print if player/dealer has a natural."""
 
@@ -130,44 +163,52 @@ class Game:
             print(f"{p.name} drew a Natural!")
 
     def update_bet(self, natural=False):
-        """Calculate win/lose and update stack"""
+        """Calculate win/lose and update cash of every player."""
 
-        # First set dealer score to zero if bust
-        d_score = self.dealer.score if self.dealer.score < 22 else 0
-
-        # For every player check outcome
         for p in self.players:
             # In Natural mode only execute if this player or dealer has 21
-            if natural and (d_score != 21 and p.score != 21):
+            if natural and (self.dealer.score != 21 and p.score != 21):
                 continue
 
-            if p.score < d_score or p.score > 21:
+            # TODO cash after game
+            # Player loses
+            if 0 < p.score < self.dealer.score:
                 # Dealer wins
                 p.cash -= p.bet
                 self.dealer.cash += p.bet
-            elif p.score > d_score:
-                # If player has natural but dealer doesn't then bet * 1,5
+                p.win = 2
+
+            # Player win
+            elif p.score > self.dealer.score:
+                p.win = 1
+                bet = p.bet
                 if natural:
-                    p.bet *= 1.5
+                    # If player has natural but dealer doesn't then bet * 1,5
+                    bet *= 1.5
+                    p.win = 3
                     self.active.remove(p)
-                p.cash += p.bet
-                self.dealer.cash -= p.bet
+                p.cash += bet
+                self.dealer.cash -= bet
 
     def hand_details(self, p, first=False):
         """Print details of current hand."""
+        # TODO different text for 2nd card
+        #  - remove either text for ace
 
         # In first round show only 1 round if not a Natural
         if p.name == "Dealer":
-            if first and not p.score == 21:
+            if first and p.score != 21:
                 dealer_hand = str(p.hand[0])
+                d_score = p.hand[0].value
             else:
                 dealer_hand = ", ".join([str(c) for c in p.hand])
-            text = f"Dealer hand is currently {p.score}: {dealer_hand}"
+                d_score = p.score
+            text = f"Dealer hand is currently {d_score}: {dealer_hand}"
             return text
 
         # For players
         begin = f"{p.name}, your current hand is "
-        if 14 in [c.value for c in p.hand]:
+        if 14 in [c.value for c in p.hand] and p.score != 21:
             text = f"either {p.score - 10} or {p.score}: "
         else:
             text = f"{p.score}: "
@@ -202,8 +243,9 @@ class Game:
             print("")
 
             # Ask to deal a card to every active player
-            while p.score < 21:
-                prompt = f"{p.name}, do you want to stand (s) or hit (h)?"
+            while 0 < p.score < 21:
+                prompt = (f"{p.name}, you're now at {p.score}. "
+                          f"Do you want to stand (s) or hit (h)?")
                 q = validate_input(prompt, str, options=s_or_h)
                 if q in s_or_h[:2]:
                     self.deal_card(p)
@@ -214,7 +256,7 @@ class Game:
             # Feedback to player after choice
             if p.score == 21:
                 txt = f"Blackjack! Well done {p.name}."
-            elif p.score > 21:
+            elif p.score == 0:
                 txt = f"Busted! {p.name}'s bet goes to the house."
             else:
                 txt = f"Good choice. Moving on."
@@ -222,23 +264,33 @@ class Game:
             self.update_bet()
 
         # Dealer must stand when 17 or over
-        while self.dealer.score < 17:
-            self.deal_card(self.dealer)
+        d = self.dealer
+        print("\nNow to see if its enough.")
+        # TODO - other dealer card
+        #  - text if dealer stands
+
+        while 0 < d.score < 17:
+            self.deal_card(d)
+            print(self.hand_details(d))
 
             # Ace counts as 11 when total would be between 16 & 22
-            dealer_hand = self.dealer.full_hand()
+            dealer_hand = d.full_hand()
             if 14 in dealer_hand:
                 if 16 < (sum(dealer_hand) + 10) < 22:
                     break
 
+        # Finally update all bets
+        self.update_bet()
+
     def end_or_continue(self):
         """Ask to end game or continue playing."""
 
-        prompt = f"Would you like to continue playing?"
+        prompt = f"\nWould you like to continue playing?"
         y_n = ["yes", "y", "no", "n", ]
         q = validate_input(prompt, str, options=y_n)
 
         if q in y_n[:2]:
+            self.reset_players()
             self.play()
 
     def reset_players(self):
@@ -248,13 +300,23 @@ class Game:
 
         self.active = list(self.players)
 
+    def game_stats(self):
+        """Show score and cash of players ."""
+
+        print("\n\nGame stats:")
+        print(f"Dealer has a score of {self.dealer.score}.")
+        w_l = {0: "kept", 1: "won", 2: "lost", 3: "took 1,5x"}
+        for p in self.players:
+            print("\n{} has a score of {} and {} their bet of {}."
+                  .format(p.name, p.score, w_l[p.win], p.bet))
+            print(f"Current cash is {p.cash}")
+
     def play(self):
-        """Run the game and clean up after"""
+        """Run the game and clean up after."""
 
         self.first_round()
         self.play_round()
-        self.update_bet()
-        self.reset_players()
+        self.game_stats()
 
         # If blank card has been reached then renew the deck
         if self.shoe.renew:
