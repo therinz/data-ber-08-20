@@ -33,7 +33,6 @@ Include links to your repository, slides and trello/kanban board. Feel free to i
 
 [Repository](https://github.com/therinz/data-ber-08-20/edit/master/Projects/module-1_projects/01_python-project/your-project/)   
 
-[Trello](https://trello.com/invite/b/PkKoowmy/f293d1c261b255ceb610e545894d11d1/blackjack\)  
+[Trello](https://trello.com/invite/b/PkKoowmy/f293d1c261b255ceb610e545894d11d1/blackjack)  
 
-[Rules to the game]
-(https://bicyclecards.com/how-to-play/blackjack/)
+[Rules to the game](https://bicyclecards.com/how-to-play/blackjack)
