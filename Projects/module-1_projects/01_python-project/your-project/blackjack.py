@@ -81,18 +81,16 @@ class Player:
 
 
 class Game:
-    """Initialize and execute blackjack game."""
+    """Blackjack game. Play() to execute."""
 
-    def __init__(self, num_players=2, cash=1000, min_bet=100):
+    def __init__(self):
         """Initialize values for game."""
 
-        self.min_bet = min_bet
-        self.cash = cash
-        self.num_players = num_players
-        self.players = []
-        self.welcome()
+        self.cash = CASH
         self.shoe = Deck()
         self.dealer = Player("Dealer", 1000000, 0)
+        self.players = []
+        self.welcome()
         self.active = list(self.players)
 
     def welcome(self):
@@ -100,22 +98,18 @@ class Game:
 
         print("\nWelcome to Ironhack Blackjack.")
         print(f"\nHouse rules:"
-              f"\n- {self.num_players} Players"
-              f"\n- ${self.cash} per player"
-              f"\n- ${self.min_bet} bet"
-              f"\n- Natural (blackjack on first hand) wins 1,5x of player bet"
+              f"\n- {NUM_PLAYERS} Players"
+              f"\n- ${CASH} per player"
+              f"\n- ${BET} bet"
+              f"\n- Bets are final once collected"
+              f"\n- Natural (blackjack on first hand) wins 1,5x of player bet"              
+              f"\n- Whatever you do, don't go over 21"
               f"\n\n- Enjoy the game and best of luck!\n")
         name_q = "What's the name of player number {}? "
-        for p in range(self.num_players):
+
+        for p in range(NUM_PLAYERS):
             name = validate_input(name_q.format(str(p + 1)))
-            self.players.append(Player(name, self.cash, self.min_bet))
-
-    def check_ace(self, p, c):
-        """If already an ace in player hand, second will count as 1."""
-
-        if c.value == 14:
-            c.value = 1 if 14 in p.full_hand() else 14
-        return c
+            self.players.append(Player(name, CASH, BET))
 
     def deal_card(self, p, num=1):
         """Deal card. Twice if first round otherwise check score."""
@@ -129,8 +123,14 @@ class Game:
 
         # In first round check hand after second card
         if num > 1:
-            self.check_natural(p)
-            print(self.hand_details(p, mode="first"))
+            self.hand_details(p, mode="first")
+
+    def check_ace(self, p, c):
+        """If already an ace in player hand, second will count as 1."""
+
+        if c.value == 14:
+            c.value = 1 if 14 in p.full_hand() else 14
+        return c
 
     def check_score(self, p):
         """Updates sum of cards in current hand."""
@@ -138,8 +138,7 @@ class Game:
         # Recalculate player score
         p.score = 0
         for card in p.hand:
-            # If full ace takes player over 21, count it as a 1
-            if card.value == 14 and p.score <= 10:
+            if card.value == 14:
                 p.score += 11
             elif card.value in [10, 11, 12, 13]:
                 p.score += 10
@@ -152,14 +151,51 @@ class Game:
                 if c.value == 14:
                     c.value = 1
             p.score -= 10
+        # If player went bust set score to 0
         elif p.score > 21:
             p.score = 0
 
-    def check_natural(self, p):
-        """Print if player/dealer has a natural."""
+    def hand_details(self, p, mode=""):
+        """Print details of current hand."""
 
-        if p.score == 21:
-            print(f"{p.name} drew a Natural!")
+        hand = ", ".join([str(c) for c in p.hand])
+
+        if p.name == "Dealer":
+            if mode == "first":
+                # In first round show only 1 round if not a Natural
+                if p.score != 21:
+                    text = f"The dealer's first card is a {str(p.hand[0])}."
+                else:
+                    text = f"Dealer has a natural: {hand}."
+            elif mode == "stand":
+                if p.score == 0:
+                    text = f"Dealer went bust!"
+                else:
+                    text = f"Dealer stands at {p.score}."
+            elif mode == "card":
+                text = f"Dealer draws a {str(p.hand[-1])}."
+            else:
+                text = f"\nThe dealer currently has {p.score}: {hand}"
+
+        # For players
+        else:
+            if mode == "first":
+                if p.score == 21:
+                    text = f"{p.name} drew a natural! {hand}."
+                else:
+                    text = f"{p.name}, you are at {p.score} with {hand}."
+            elif mode == "card":
+                text = f"Your card is a {str(p.hand[-1])}. "
+                if p.score == 21:
+                    text += f"\nBlackjack! Well done {p.name}."
+                elif p.score == 0:
+                    text += f"\nBusted! {p.name}'s bet goes to the house."
+                else:
+                    text += f"You're now at {p.score}."
+            else:
+                text = f"{p.name}, you're now at {p.score}."
+
+        print(text)
 
     def update_bet(self, natural=False):
         """Calculate win/lose and update cash of every player."""
@@ -169,15 +205,14 @@ class Game:
             if natural and (self.dealer.score != 21 and p.score != 21):
                 continue
 
-            # TODO cash after game
             # Player loses
-            if 0 < p.score < self.dealer.score:
+            if p.score < self.dealer.score:
                 # Dealer wins
                 p.cash -= p.bet
                 self.dealer.cash += p.bet
                 p.win = 2
 
-            # Player win
+            # Player wins
             elif p.score > self.dealer.score:
                 p.win = 1
                 bet = p.bet
@@ -189,45 +224,19 @@ class Game:
                 p.cash += bet
                 self.dealer.cash -= bet
 
-    def hand_details(self, p, mode="first"):
-        """Print details of current hand."""
+    def place_bets(self):
+        """Ask every player how much they want to bet."""
 
-        hand = ", ".join([str(c) for c in p.hand])
-        # TODO present score 0 differently
-        # In first round show only 1 round if not a Natural
-        if p.name == "Dealer":
-            if mode == "first":
-                if p.score != 21:
-                    text = f"The dealer's first card is a {str(p.hand[0])}."
-                else:
-                    text = f"Dealer has a natural: {hand}."
-            elif mode == "stand":
-                text = f"Dealer stands at {p.score}: {hand}."
-            elif mode == "card":
-                text = f"Dealer draws a {str(p.hand[-1])}."
-            else:
-                text = f"The dealer currently has {p.score}: {hand}"
-
-            return text
-
-        # For players
-        if mode == "first":
-            if p.score == 21:
-                text = f"{p.name} drew a natural! {hand}."
-            else:
-                text = f"{p.name}, you are at {p.score} with {hand}."
-        elif mode == "card":
-            text = f"Your card is a {str(p.hand[-1])}."
-        else:
-            text = f"You're now at {p.score}."
-
-        return text
+        prompt = "{}, how much would you like to bet?"
+        for p in self.players:
+            q = validate_input(prompt.format(p.name), int, min_=2, max_=500)
+            p.bet = q
 
     def first_round(self):
         """Deal first hand to all players and dealer."""
 
-        print("\nOff we go. The first cards are dealt.\n")
         # Deal first cards
+        print("\nOff we go. The first cards are dealt.\n")
         for p in self.players:
             self.deal_card(p, num=2)
         self.deal_card(self.dealer, num=2)
@@ -242,9 +251,9 @@ class Game:
                 self.end_or_continue()
 
     def play_round(self):
-        """After first cards each players goes a round"""
+        """Second round deal one by one."""
 
-        s_or_h = ["hit", "h", "stand", "s"]
+        s_or_h = ["hit", "h", "y", "stand", "s", "n"]
 
         for p in self.active:
             print("")
@@ -254,40 +263,44 @@ class Game:
                 self.hand_details(p)
                 prompt = f"Do you want to stand (s) or hit (h)?"
                 q = validate_input(prompt, str, options=s_or_h)
-                if q in s_or_h[:2]:
+                if q.lower() in s_or_h[:3]:
                     self.deal_card(p)
-                    print(self.hand_details(p, mode="card"))
+                    self.hand_details(p, mode="card")
                 else:
+                    print(f"Good choice. Moving on.")
                     break
 
-            # Feedback to player after choice
-            if p.score == 21:
-                txt = f"Blackjack! Well done {p.name}."
-            elif p.score == 0:
-                txt = f"Busted! {p.name}'s bet goes to the house."
-            else:
-                txt = f"Good choice. Moving on."
-            print(txt)
-            self.update_bet()
-
-        # Dealer must stand when 17 or over
         d = self.dealer
         self.hand_details(d)
 
-        # TODO dealer text not executed
+        # Dealer must stand when 17 or over
         while 0 < d.score < 17:
             self.deal_card(d)
-            print(self.hand_details(d, mode="card"))
-
-            # Ace counts as 11 when total would be between 16 & 22
-            dealer_hand = d.full_hand()
-            if 14 in dealer_hand:
-                if 16 < (sum(dealer_hand) + 10) < 22:
-                    break
+            self.hand_details(d, mode="card")
         self.hand_details(d, mode="stand")
 
         # Finally update all bets
         self.update_bet()
+
+    def game_stats(self):
+        """Show score and cash of players ."""
+
+        print("\n\nGame stats:")
+        if self.dealer.score == 0:
+            txt = f"\n{self.dealer.name} went bust."
+        else:
+            txt = f"Dealer has a score of {self.dealer.score}."
+        print(txt)
+
+        w_l = {0: "kept", 1: "won", 2: "lost", 3: "took 1,5x"}
+        for p in self.players:
+            if p.score == 0:
+                txt = f"\n{p.name} went bust and lost their bet of {p.bet}."
+            else:
+                txt = "\n{} has a score of {} and {} their bet of {}.".format(
+                    p.name, p.score, w_l[p.win], p.bet)
+            print(txt)
+            print(f"Current cash is {p.cash}")
 
     def end_or_continue(self):
         """Ask to end game or continue playing."""
@@ -296,31 +309,25 @@ class Game:
         y_n = ["yes", "y", "no", "n", ]
         q = validate_input(prompt, str, options=y_n)
 
-        if q in y_n[:2]:
+        if q.lower() in y_n[:2]:
             self.reset_players()
             self.play()
+        else:
+            print("Thank you for playing Blackjack. Goodbye.")
 
     def reset_players(self):
-        for p in self.players:
+        """Reset player hand and score before next round."""
+
+        for p in (self.players + [self.dealer]):
             p.hand.clear()
             p.score = 0
 
         self.active = list(self.players)
 
-    def game_stats(self):
-        """Show score and cash of players ."""
-
-        print("\n\nGame stats:")
-        print(f"Dealer has a score of {self.dealer.score}.")
-        w_l = {0: "kept", 1: "won", 2: "lost", 3: "took 1,5x"}
-        for p in self.players:
-            print("\n{} has a score of {} and {} their bet of {}."
-                  .format(p.name, p.score, w_l[p.win], p.bet))
-            print(f"Current cash is {p.cash}")
-
     def play(self):
         """Run the game and clean up after."""
 
+        self.place_bets()
         self.first_round()
         self.play_round()
         self.game_stats()
@@ -362,7 +369,7 @@ def validate_input(prompt, type_=None, min_=None, max_=None, options=None):
         elif min_ is not None and ui_num < min_:
             print(f"Input must be more than or equal to {min_}.")
         elif options is not None and ui.lower() not in options:
-            print("Input must be one of the following:" + ", ".join(options))
+            print("Input must be one of the following: " + ", ".join(options))
         else:
             return ui
 
