@@ -196,7 +196,7 @@ class Game:
                 continue
 
             # Player loses
-            if p.score < self.dealer.score:
+            if p.score == 0 or p.score < self.dealer.score:
                 # Dealer wins
                 p.cash -= p.bet
                 self.dealer.cash += p.bet
