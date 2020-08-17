@@ -20,18 +20,6 @@ class Card:
         self.value = v
         self.suit = s
 
-    def __lt__(self, other):
-        """Returns True if card is lower than other card."""
-
-        if self.value < other.value:
-            return True
-        if self.value == other.value:
-            return True if self.suit > other.suit else False
-
-    def __gt__(self, other):
-        if self.value > other.value:
-            return True
-
     def __str__(self):
         """String representation of playing card."""
 
@@ -40,7 +28,7 @@ class Card:
 
 class Deck:
     def __init__(self, n=6):
-        """"""
+        """A container to store n times 52 cards."""
 
         # Create n decks of cards consisting of 52 playing cards each.
         c = [Card(v, s) for v in range(2, 15) for s in range(4)]
@@ -59,6 +47,7 @@ class Deck:
 
         if len(self.cards) < self.blank:
             self.renew = True
+
         return self.cards.pop()
 
 
@@ -75,7 +64,7 @@ class Player:
         self.win = 0
 
     def full_hand(self):
-        """Return list of card values in current hand."""
+        """Return list of card values in player hand."""
 
         return [c.value for c in self.hand]
 
@@ -130,6 +119,7 @@ class Game:
 
         if c.value == 14:
             c.value = 1 if 14 in p.full_hand() else 14
+
         return c
 
     def check_score(self, p):
@@ -320,7 +310,7 @@ class Game:
 
         for p in (self.players + [self.dealer]):
             p.hand.clear()
-            p.score = 0
+            p.score = p.win = 0
 
         self.active = list(self.players)
 
@@ -348,6 +338,7 @@ def validate_input(prompt, type_=None, min_=None, max_=None, options=None):
     :param options: List of options allowed
     :return: str, int or float.
     """
+
     if (min_ is not None
             and max_ is not None
             and max_ < min_):
