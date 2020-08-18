@@ -51,3 +51,31 @@ ORDER BY TOTAL DESC
 LIMIT 3;
 
 -- Challenge 4
+SELECT 
+a.au_id 						as `AUTHOR ID`,
+a.au_lname 						as `LAST NAME`,
+a.au_fname 						as `FIRST NAME`,
+coalesce(SUM(t.ytd_sales), 0)  	as TOTAL
+FROM publications.titleauthor ta
+INNER JOIN publications.titles t
+ON ta.title_id = t.title_id
+RIGHT JOIN publications.authors a
+ON ta.au_id = a.au_id
+GROUP BY a.au_id
+ORDER BY TOTAL DESC;
+
+-- Bonus
+SELECT
+a.au_id 						as `AUTHOR ID`,
+a.au_lname 						as `LAST NAME`,
+a.au_fname 						as `FIRST NAME`,
+round(SUM((ta.royaltyper / 100) * t.royalty * t.ytd_sales) + 
+SUM((ta.royaltyper / 100) * t.advance))	AS PROFIT
+FROM publications.titleauthor ta
+INNER JOIN publications.titles t
+	ON ta.title_id = t.title_id
+INNER JOIN publications.authors a
+	ON ta.au_id = a.au_id
+GROUP BY a.au_id
+ORDER BY PROFIT DESC
+LIMIT 3;
