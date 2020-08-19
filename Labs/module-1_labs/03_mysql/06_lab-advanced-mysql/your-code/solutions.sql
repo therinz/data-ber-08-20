@@ -83,10 +83,11 @@ INNER JOIN titles t
 GROUP BY ta.au_id
 ORDER BY Profits DESC;
 
-CREATE TEMPORARY TABLE temp AS
-select au_id
-from authors
+
 /*
+Error Code: 1064. You have an error in your SQL syntax; check the manual that corresponds 
+to your MySQL server version for the right syntax to use near 'CREATE TEMPORARY TABLE 
+most_profiting_authors AS SELECT   ta.au_id AS 'Author ID' at line 69
 
 	
 	
