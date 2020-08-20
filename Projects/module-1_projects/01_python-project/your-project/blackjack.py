@@ -337,6 +337,9 @@ def validate_input(prompt, type_=None, min_=None, max_=None, options=None):
     :param max_: Maximum length of str of upper value of int.
     :param options: List of options allowed
     :return: str, int or float.
+    
+    adapted from https://stackoverflow.com/questions/23294658/
+        asking-the-user-for-input-until-they-give-a-valid-response
     """
 
     if (min_ is not None
